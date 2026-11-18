@@ -18,7 +18,8 @@ Navegador → Vercel (frontend) → Render (API) → Neon (Postgres)
 
 1. [console.neon.tech](https://console.neon.tech) → **New Project** → nombre `pos-productos`.
 2. **SQL Editor** → pegar todo `database/schema.sql` → **Run**. Debe mostrar 12 productos.
-3. **Connect** → activar *Connection pooling* → copiar la cadena. Esa es la `DATABASE_URL`.
+3. **SQL Editor** → pegar todo `database/usuarios.sql` → **Run**. Crea el usuario de prueba `admin` / `Prueba123!` (cambiar la contraseña antes de un uso real).
+4. **Connect** → activar *Connection pooling* → copiar la cadena. Esa es la `DATABASE_URL`.
 
 ## 2. Render (backend)
 
@@ -41,6 +42,7 @@ Navegador → Vercel (frontend) → Render (API) → Neon (Postgres)
 |---|---|
 | `DATABASE_URL` | cadena de Neon |
 | `CORS_ORIGIN` | URL de Vercel (se agrega en el paso 4) |
+| `AUTH_SECRET` | texto aleatorio largo para firmar las sesiones (ej. *Generate* en Render) |
 
 > No definir `PORT`: lo asigna Render.
 
@@ -89,11 +91,15 @@ npm run dev                 # http://localhost:5173
 | Método | Ruta | Respuesta |
 |---|---|---|
 | GET | `/api/health` | `{ status: "ok" }` |
+| POST | `/api/login` | `{ token, usuario }`, 400 (faltan datos) o 401 (credenciales incorrectas) |
 | GET | `/api/productos` | lista ordenada por nombre |
 | GET | `/api/productos/:id` | producto o 404 |
 | POST | `/api/productos` | 201, 400 (validación) o 409 (código repetido) |
 | PUT | `/api/productos/:id` | 200, 400, 404 o 409 |
 | DELETE | `/api/productos/:id` | 200 o 404 |
+
+Las rutas `/api/productos` requieren el encabezado `Authorization: Bearer <token>`; sin él responden 401.
+La sesión dura 8 horas.
 
 ## Problemas comunes
 
@@ -103,5 +109,7 @@ npm run dev                 # http://localhost:5173
 | "Failed to fetch" en Vercel | Falta `VITE_API_URL` o no se hizo Redeploy |
 | Primera carga tarda ~50 s | Render Free estaba dormido; es normal |
 | "Cannot find package.json" | Root Directory = `backend` (Render) / `frontend` (Vercel) |
+| "relation usuarios does not exist" al iniciar sesión | Ejecutar `database/usuarios.sql` en Neon |
+| La sesión se cierra sola tras cada despliegue | Falta `AUTH_SECRET` en Render |
 | "relation productos does not exist" | Ejecutar `database/schema.sql` en el mismo proyecto de Neon |
 | Error SSL / autenticación | Usar la cadena con `sslmode=require`; si falla, quitar `&channel_binding=require` |

@@ -1,10 +1,14 @@
 import { useState, useEffect } from 'react';
 import {
+  obtenerSesion,
+  cerrarSesion,
   listarProductos,
   crearProducto,
   actualizarProducto,
   eliminarProducto,
 } from './api';
+import { handleInvalid, limpiarValidacion } from './validacion';
+import Login from './Login';
 import './App.css';
 
 const INITIAL_FORM = {
@@ -15,43 +19,39 @@ const INITIAL_FORM = {
   stock: '',
 };
 
-// Mensajes de validación nativa del navegador traducidos al español.
-// Sin esto, el navegador muestra sus textos en inglés
-// (p. ej. "Value must be greater than or equal to 0.").
-const MENSAJES_CAMPO = {
-  precio: {
-    rangeUnderflow: 'El precio debe ser mayor o igual a 0.01.',
-    stepMismatch: 'El precio solo admite hasta 2 decimales.',
-  },
-  stock: {
-    rangeUnderflow: 'El stock debe ser mayor o igual a 0.',
-    stepMismatch: 'El stock debe ser un número entero.',
-  },
-};
-
-function mensajeValidacion(input) {
-  const v = input.validity;
-  const propios = MENSAJES_CAMPO[input.name] || {};
-  if (v.valueMissing) return 'Por favor completa este campo.';
-  if (v.badInput) return 'Por favor ingresa un número válido.';
-  if (v.rangeUnderflow) return propios.rangeUnderflow || `El valor debe ser mayor o igual a ${input.min}.`;
-  if (v.rangeOverflow) return `El valor debe ser menor o igual a ${input.max}.`;
-  if (v.stepMismatch) return propios.stepMismatch || 'Por favor ingresa un valor válido.';
-  if (v.typeMismatch || v.patternMismatch) return 'El formato del valor no es válido.';
-  return '';
-}
-
-function handleInvalid(e) {
-  e.target.setCustomValidity(mensajeValidacion(e.target));
-}
-
-// Limpia los mensajes personalizados para que el navegador vuelva a evaluar los campos.
-function limpiarValidacion(form) {
-  if (!form) return;
-  Array.from(form.elements).forEach((el) => el.setCustomValidity?.(''));
-}
-
 export default function App() {
+  const [sesion, setSesion] = useState(obtenerSesion);
+  const [avisoLogin, setAvisoLogin] = useState(null);
+
+  // Si el servidor rechaza el token (expirado o inválido), se vuelve al login
+  useEffect(() => {
+    function alExpirar() {
+      setSesion(null);
+      setAvisoLogin('Tu sesión expiró. Inicia sesión nuevamente.');
+    }
+    window.addEventListener('sesion-expirada', alExpirar);
+    return () => window.removeEventListener('sesion-expirada', alExpirar);
+  }, []);
+
+  function handleLogin(nuevaSesion) {
+    setAvisoLogin(null);
+    setSesion(nuevaSesion);
+  }
+
+  function handleLogout() {
+    cerrarSesion();
+    setAvisoLogin(null);
+    setSesion(null);
+  }
+
+  if (!sesion) {
+    return <Login onLogin={handleLogin} aviso={avisoLogin} />;
+  }
+
+  return <Inventario usuario={sesion.usuario} onLogout={handleLogout} />;
+}
+
+function Inventario({ usuario, onLogout }) {
   const [productos, setProductos] = useState([]);
   const [formData, setFormData] = useState(INITIAL_FORM);
   const [editandoId, setEditandoId] = useState(null);
@@ -188,8 +188,18 @@ export default function App() {
   return (
     <div className="pos-app">
       <header className="pos-header">
-        <h1>POS · Productos</h1>
-        <p className="subtitle">Gestión de inventario y catálogo de productos</p>
+        <div className="header-row">
+          <div>
+            <h1>POS · Productos</h1>
+            <p className="subtitle">Gestión de inventario y catálogo de productos</p>
+          </div>
+          <div className="user-box">
+            <span className="user-name">👤 {usuario?.nombre || usuario?.usuario}</span>
+            <button type="button" className="btn btn-outline" onClick={onLogout}>
+              Cerrar sesión
+            </button>
+          </div>
+        </div>
       </header>
 
       <main className="pos-main">
