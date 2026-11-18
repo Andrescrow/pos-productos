@@ -15,6 +15,42 @@ const INITIAL_FORM = {
   stock: '',
 };
 
+// Mensajes de validación nativa del navegador traducidos al español.
+// Sin esto, el navegador muestra sus textos en inglés
+// (p. ej. "Value must be greater than or equal to 0.").
+const MENSAJES_CAMPO = {
+  precio: {
+    rangeUnderflow: 'El precio debe ser mayor o igual a 0.01.',
+    stepMismatch: 'El precio solo admite hasta 2 decimales.',
+  },
+  stock: {
+    rangeUnderflow: 'El stock debe ser mayor o igual a 0.',
+    stepMismatch: 'El stock debe ser un número entero.',
+  },
+};
+
+function mensajeValidacion(input) {
+  const v = input.validity;
+  const propios = MENSAJES_CAMPO[input.name] || {};
+  if (v.valueMissing) return 'Por favor completa este campo.';
+  if (v.badInput) return 'Por favor ingresa un número válido.';
+  if (v.rangeUnderflow) return propios.rangeUnderflow || `El valor debe ser mayor o igual a ${input.min}.`;
+  if (v.rangeOverflow) return `El valor debe ser menor o igual a ${input.max}.`;
+  if (v.stepMismatch) return propios.stepMismatch || 'Por favor ingresa un valor válido.';
+  if (v.typeMismatch || v.patternMismatch) return 'El formato del valor no es válido.';
+  return '';
+}
+
+function handleInvalid(e) {
+  e.target.setCustomValidity(mensajeValidacion(e.target));
+}
+
+// Limpia los mensajes personalizados para que el navegador vuelva a evaluar los campos.
+function limpiarValidacion(form) {
+  if (!form) return;
+  Array.from(form.elements).forEach((el) => el.setCustomValidity?.(''));
+}
+
 export default function App() {
   const [productos, setProductos] = useState([]);
   const [formData, setFormData] = useState(INITIAL_FORM);
@@ -44,6 +80,7 @@ export default function App() {
 
   function handleInputChange(e) {
     const { name, value } = e.target;
+    e.target.setCustomValidity('');
     setFormData((prev) => ({
       ...prev,
       [name]: value,
@@ -190,6 +227,7 @@ export default function App() {
                   onChange={handleInputChange}
                   placeholder="Ej. BEB001"
                   required
+                  onInvalid={handleInvalid}
                   disabled={guardando}
                 />
               </div>
@@ -204,6 +242,7 @@ export default function App() {
                   onChange={handleInputChange}
                   placeholder="Ej. Café Molido 500g"
                   required
+                  onInvalid={handleInvalid}
                   disabled={guardando}
                 />
               </div>
@@ -218,6 +257,7 @@ export default function App() {
                   onChange={handleInputChange}
                   placeholder="Ej. Bebidas"
                   required
+                  onInvalid={handleInvalid}
                   disabled={guardando}
                 />
               </div>
@@ -234,6 +274,7 @@ export default function App() {
                   step="0.01"
                   min="0.01"
                   required
+                  onInvalid={handleInvalid}
                   disabled={guardando}
                 />
               </div>
@@ -250,6 +291,7 @@ export default function App() {
                   step="1"
                   min="0"
                   required
+                  onInvalid={handleInvalid}
                   disabled={guardando}
                 />
               </div>
@@ -259,6 +301,7 @@ export default function App() {
               <button
                 type="submit"
                 className="btn btn-primary"
+                onClick={(e) => limpiarValidacion(e.currentTarget.form)}
                 disabled={guardando}
               >
                 {guardando
