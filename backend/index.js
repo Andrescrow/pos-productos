@@ -2,6 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import 'dotenv/config';
 import { pool } from './db.js';
+import { crearToken, requireAuth } from './auth.js';
 
 const app = express();
 const PORT = process.env.PORT || 4000;
@@ -103,6 +104,46 @@ function validateProductoPayload(body) {
 app.get('/api/health', (req, res) => {
   res.status(200).json({ status: 'ok' });
 });
+
+// POST /api/login - Iniciar sesión con usuario y contraseña
+app.post('/api/login', async (req, res) => {
+  const { usuario, password } = req.body || {};
+
+  if (
+    typeof usuario !== 'string' ||
+    typeof password !== 'string' ||
+    usuario.trim() === '' ||
+    password === ''
+  ) {
+    return res.status(400).json({ error: 'Ingresa tu usuario y contraseña' });
+  }
+
+  try {
+    // La contraseña se compara contra el hash bcrypt dentro de PostgreSQL (pgcrypto)
+    const result = await pool.query(
+      `SELECT id, usuario, nombre
+       FROM usuarios
+       WHERE usuario = $1 AND activo AND password_hash = crypt($2, password_hash)`,
+      [usuario.trim(), password]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(401).json({ error: 'Usuario o contraseña incorrectos' });
+    }
+
+    const user = result.rows[0];
+    res.status(200).json({
+      token: crearToken(user),
+      usuario: { id: Number(user.id), usuario: user.usuario, nombre: user.nombre },
+    });
+  } catch (error) {
+    console.error('Error al iniciar sesión:', error);
+    res.status(500).json({ error: 'Error inesperado al iniciar sesión' });
+  }
+});
+
+// Todas las rutas de productos requieren una sesión válida
+app.use('/api/productos', requireAuth);
 
 // GET /api/productos - Listar todos los productos (ordenados por nombre, RF-01)
 app.get('/api/productos', async (req, res) => {
